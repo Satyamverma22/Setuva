@@ -53,3 +53,45 @@ async def search_entries(
         results = await cursor.to_list(length=limit)
 
     return results
+
+@router.get("/semantic")
+async def search_semantic(
+    q: str = Query(..., description="Search query string"),
+    category: Optional[CategoryType] = Query(None, description="Filter by category"),
+    limit: int = Query(10, ge=1, le=50, description="Limit result count"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Perform semantic search utilizing OpenAI embeddings.
+    """
+    import logging
+    from fastapi import status, HTTPException
+    from app.services.search_service import semantic_search
+    from app.services.embedding_service import EmbeddingError
+
+    logger = logging.getLogger(__name__)
+    
+    try:
+        results = await semantic_search(db, query=q, category=category, limit=limit)
+        return {
+            "query": q,
+            "search_type": "semantic",
+            "count": len(results),
+            "results": results
+        }
+    except ValueError as val_err:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(val_err)
+        )
+    except EmbeddingError as emb_err:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Embedding service is temporarily unavailable. Please try again later."
+        )
+    except Exception as e:
+        logger.error(f"Semantic search failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Semantic search failed due to an internal error."
+        )

@@ -22,6 +22,7 @@ async def register_user(db: AsyncIOMotorDatabase, user_in: UserCreate) -> dict:
         "email": email,
         "hashed_password": hashed_password,
         "role": user_in.role,
+        "preferred_language": user_in.preferred_language,
         "created_at": datetime.now(timezone.utc)
     }
     

@@ -4,6 +4,10 @@ from fastapi import HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from bson import ObjectId
 from app.models.knowledge_entry import KnowledgeEntryCreate, KnowledgeEntryUpdate
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 async def create_knowledge_entry(db: AsyncIOMotorDatabase, contributor_id: str, entry_in: KnowledgeEntryCreate) -> dict:
     """Create a new knowledge entry in draft status."""
@@ -17,6 +21,9 @@ async def create_knowledge_entry(db: AsyncIOMotorDatabase, contributor_id: str, 
         "created_at": now,
         "updated_at": now
     }
+    if entry_in.community_id:
+        entry_dict["community_id"] = ObjectId(entry_in.community_id)
+        
     result = await db["knowledge_entries"].insert_one(entry_dict)
     entry_dict["_id"] = result.inserted_id
     return entry_dict
@@ -26,7 +33,8 @@ async def get_knowledge_entries(
     category: Optional[str] = None,
     contributor_id: Optional[str] = None,
     skip: int = 0,
-    limit: int = 20
+    limit: int = 20,
+    community_id: Optional[str] = None
 ) -> List[dict]:
     """Retrieve knowledge entries with pagination and filters."""
     query = {}
@@ -36,7 +44,11 @@ async def get_knowledge_entries(
         try:
             query["contributor_id"] = ObjectId(contributor_id)
         except Exception:
-            # If contributor_id is not a valid ObjectId, query will find nothing
+            return []
+    if community_id:
+        try:
+            query["community_id"] = ObjectId(community_id)
+        except Exception:
             return []
             
     cursor = db["knowledge_entries"].find(query).skip(skip).limit(limit)
@@ -102,6 +114,13 @@ async def delete_knowledge_entry(
         
     file_url = entry.get("file_url")
     await db["knowledge_entries"].delete_one({"_id": ObjectId(entry_id)})
+    
+    # Delete related verifications safely
+    try:
+        await db["knowledge_verifications"].delete_many({"entry_id": ObjectId(entry_id)})
+    except Exception as e:
+        logger.error(f"Failed to delete related verifications for entry {entry_id}: {e}", exc_info=True)
+        
     if file_url:
         from app.services.file_service import delete_file_from_disk
         delete_file_from_disk(file_url)
