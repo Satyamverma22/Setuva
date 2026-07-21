@@ -1,24 +1,30 @@
-# Secrets
-.env
-.env.*
-!.env.example
-
 # Python virtual environments
-venv/
 .venv/
-env/
+venv/
+backend/.venv/
+backend/venv/
 
 # Python cache
 __pycache__/
 *.py[cod]
 
-# Uploaded files
-uploads/
+# Environment files and secrets
+.env
+.env.*
+!.env.example
 
-# Logs and caches
+# Node dependencies
+node_modules/
+
+# Frontend build output
+dist/
+build/
+
+# Logs
 *.log
-.pytest_cache/
-.mypy_cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Editors
 .vscode/
